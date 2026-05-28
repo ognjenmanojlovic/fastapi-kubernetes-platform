@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.backend.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.backend.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.backend.name }}
+    spec:
+      containers:
+        - name: {{ .Values.backend.name }}
+          image: {{ .Values.backend.image | quote }}
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
+          resources:
+            requests:
+              memory: {{ .Values.resources.backend.requests.memory | quote }}
+              cpu: {{ .Values.resources.backend.requests.cpu | quote }}
+            limits:
+              memory: {{ .Values.resources.backend.limits.memory | quote }}
+              cpu: {{ .Values.resources.backend.limits.cpu | quote }}
+
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 15
+            periodSeconds: 10

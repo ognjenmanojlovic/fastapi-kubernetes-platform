@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.frontend.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.frontend.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.frontend.name }}
+    spec:
+      containers:
+        - name: {{ .Values.frontend.name }}
+          image: {{ .Values.frontend.image | quote }}
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: {{ .Values.frontend.containerPort }}
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+
+          resources:
+            requests:
+              memory: {{ .Values.resources.frontend.requests.memory | quote }}
+              cpu: {{ .Values.resources.frontend.requests.cpu | quote }}
+            limits:
+              memory: {{ .Values.resources.frontend.limits.memory | quote }}
+              cpu: {{ .Values.resources.frontend.limits.cpu | quote }}
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
