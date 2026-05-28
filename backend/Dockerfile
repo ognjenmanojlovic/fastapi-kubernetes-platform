@@ -6,16 +6,13 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Create non-root user
-RUN groupadd --system appgroup \
-    && useradd --system --gid appgroup --home-dir /app appuser
+RUN groupadd --system --gid 10001 appgroup \
+    && useradd --system --uid 10001 --gid appgroup --home-dir /app appuser
 
-# Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
 WORKDIR /app/
 
-# Install dependencies first for better Docker layer caching
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
@@ -25,17 +22,16 @@ COPY ./backend/scripts /app/backend/scripts
 COPY ./backend/pyproject.toml ./backend/alembic.ini /app/backend/
 COPY ./backend/app /app/backend/app
 
-# Install project package
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --package app
 
-RUN chown -R appuser:appgroup /app/backend /app/.venv
+RUN chown -R 10001:10001 /app
 
 WORKDIR /app/backend/
 
-USER appuser
+USER 10001:10001
 
 EXPOSE 8000
 
