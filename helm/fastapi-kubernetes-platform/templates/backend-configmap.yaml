@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: {{ .Values.namespace }}
+data:
+  DOMAIN: {{ .Values.config.DOMAIN | quote }}
+  FRONTEND_HOST: {{ .Values.config.FRONTEND_HOST | quote }}
+  ENVIRONMENT: {{ .Values.config.ENVIRONMENT | quote }}
+  PROJECT_NAME: {{ .Values.config.PROJECT_NAME | quote }}
+  STACK_NAME: {{ .Values.config.STACK_NAME | quote }}
+  BACKEND_CORS_ORIGINS: {{ .Values.config.BACKEND_CORS_ORIGINS | quote }}
+
+  SMTP_HOST: {{ .Values.config.SMTP_HOST | quote }}
+  SMTP_USER: {{ .Values.config.SMTP_USER | quote }}
+  EMAILS_FROM_EMAIL: {{ .Values.config.EMAILS_FROM_EMAIL | quote }}
+  SMTP_TLS: {{ .Values.config.SMTP_TLS | quote }}
+  SMTP_SSL: {{ .Values.config.SMTP_SSL | quote }}
+  SMTP_PORT: {{ .Values.config.SMTP_PORT | quote }}
+
+  POSTGRES_SERVER: {{ .Values.config.POSTGRES_SERVER | quote }}
+  POSTGRES_PORT: {{ .Values.config.POSTGRES_PORT | quote }}
+  POSTGRES_DB: {{ .Values.config.POSTGRES_DB | quote }}
+  POSTGRES_USER: {{ .Values.config.POSTGRES_USER | quote }}
+
+  SENTRY_DSN: {{ .Values.config.SENTRY_DSN | quote }}
+  DOCKER_IMAGE_BACKEND: {{ .Values.config.DOCKER_IMAGE_BACKEND | quote }}
+  DOCKER_IMAGE_FRONTEND: {{ .Values.config.DOCKER_IMAGE_FRONTEND | quote }}

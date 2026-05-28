@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.postgres.name }}
+  namespace: {{ .Values.namespace }}
+
+spec:
+  replicas: {{ .Values.postgres.replicas }}
+
+  strategy:
+    type: Recreate
+
+  selector:
+    matchLabels:
+      app: {{ .Values.postgres.name }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.postgres.name }}
+
+    spec:
+      containers:
+        - name: {{ .Values.postgres.name }}
+          image: {{ .Values.postgres.image | quote }}
+
+          ports:
+            - containerPort: {{ .Values.postgres.containerPort }}
+
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+
+          resources:
+            requests:
+              memory: {{ .Values.resources.postgres.requests.memory | quote }}
+              cpu: {{ .Values.resources.postgres.requests.cpu | quote }}
+
+            limits:
+              memory: {{ .Values.resources.postgres.limits.memory | quote }}
+              cpu: {{ .Values.resources.postgres.limits.cpu | quote }}
+
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.postgres.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.postgres.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc

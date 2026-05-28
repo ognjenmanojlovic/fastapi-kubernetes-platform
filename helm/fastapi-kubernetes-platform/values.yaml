@@ -1,0 +1,85 @@
+namespace: devsecops
+
+backend:
+  name: backend
+  image: backend:latest
+  replicas: 1
+  containerPort: 8000
+  servicePort: 8000
+
+frontend:
+  name: frontend
+  image: frontend:latest
+  replicas: 1
+  containerPort: 8080
+  servicePort: 5173
+
+postgres:
+  name: postgres
+  image: postgres:16-alpine
+  replicas: 1
+  containerPort: 5432
+  servicePort: 5432
+  storage: 1Gi
+  database: app
+  user: postgres
+  password: changethis
+
+config:
+  DOMAIN: localhost
+  FRONTEND_HOST: http://localhost:5173
+  ENVIRONMENT: local
+  PROJECT_NAME: Full Stack FastAPI Project
+  STACK_NAME: full-stack-fastapi-project
+  BACKEND_CORS_ORIGINS: http://localhost,http://localhost:5173,https://localhost,https://localhost:5173,http://localhost.tiangolo.com
+  SMTP_HOST: ""
+  SMTP_USER: ""
+  EMAILS_FROM_EMAIL: info@example.com
+  SMTP_TLS: "True"
+  SMTP_SSL: "False"
+  SMTP_PORT: "587"
+  POSTGRES_SERVER: postgres-service
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: app
+  POSTGRES_USER: postgres
+  SENTRY_DSN: ""
+  DOCKER_IMAGE_BACKEND: backend
+  DOCKER_IMAGE_FRONTEND: frontend
+
+secret:
+  SECRET_KEY: changethis
+  FIRST_SUPERUSER: admin@example.com
+  FIRST_SUPERUSER_PASSWORD: changethis
+  POSTGRES_PASSWORD: changethis
+  SMTP_PASSWORD: ""
+
+ingress:
+  enabled: true
+  className: traefik
+  frontendHost: frontend.localhost
+  backendHost: api.localhost
+
+resources:
+  backend:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  frontend:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+
+  postgres:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
