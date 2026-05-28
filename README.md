@@ -1,1231 +1,871 @@
-# FastAPI DevSecOps Platform
+# FastAPI Kubernetes DevSecOps Platform
 
 <p align="center">
   <img src="./img/github-social-preview.png" alt="FastAPI DevSecOps Platform Banner" width="100%">
 </p>
 
-> A modern DevSecOps showcase project based on the official **FastAPI Full Stack Template**, focused on secure CI/CD, automated security scanning, container hardening, software supply chain security, SBOM generation, GitHub Container Registry, and signed Docker images.
+A practical Kubernetes project that extends an existing FastAPI DevSecOps platform into a container-orchestrated deployment using **k3d**, **Kubernetes**, **Traefik Ingress**, **PostgreSQL**, **Helm**, and basic **Kubernetes security hardening**.
+
+The goal of this project is not to build an over-engineered enterprise cluster. The goal is to show that the application can be deployed, configured, exposed, and managed in a realistic Kubernetes environment while keeping the setup understandable and reproducible.
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Original Application Template](#original-application-template)
-- [Project Goal](#project-goal)
-- [Why This Project Exists](#why-this-project-exists)
-- [High-Level Architecture](#high-level-architecture)
-- [Technology Stack](#technology-stack)
-- [What the Base Application Does](#what-the-base-application-does)
-- [DevSecOps Features Implemented](#devsecops-features-implemented)
-  - [1. GitHub Actions CI/CD](#1-github-actions-cicd)
-  - [2. Secret Scanning with Gitleaks](#2-secret-scanning-with-gitleaks)
-  - [3. Static Application Security Testing with Semgrep](#3-static-application-security-testing-with-semgrep)
-  - [4. Vulnerability Scanning with Trivy](#4-vulnerability-scanning-with-trivy)
-  - [5. Dependency Scanning with pip-audit and npm audit](#5-dependency-scanning-with-pip-audit-and-npm-audit)
-  - [6. Dependabot Security Monitoring](#6-dependabot-security-monitoring)
-  - [7. Docker Image Builds and GitHub Container Registry](#7-docker-image-builds-and-github-container-registry)
-  - [8. Docker Container Hardening](#8-docker-container-hardening)
-  - [9. SBOM Generation](#9-sbom-generation)
-  - [10. GitHub Security Tab Integration](#10-github-security-tab-integration)
-  - [11. Container Image Signing with Cosign](#11-container-image-signing-with-cosign)
-  - [12. Pre-Commit and Workflow Security Checks](#12-pre-commit-and-workflow-security-checks)
-- [Docker Hardening Explained](#docker-hardening-explained)
-- [CI/CD Workflow Overview](#cicd-workflow-overview)
-- [Security Pipeline Overview](#security-pipeline-overview)
-- [Supply Chain Security Overview](#supply-chain-security-overview)
-- [Local Setup](#local-setup)
+- [Project Overview](#project-overview)
+- [What This Project Demonstrates](#what-this-project-demonstrates)
+- [What Is Kubernetes?](#what-is-kubernetes)
+- [Why Kubernetes Was Added](#why-kubernetes-was-added)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Core Kubernetes Concepts Used](#core-kubernetes-concepts-used)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Local Kubernetes Cluster Setup](#local-kubernetes-cluster-setup)
+- [Docker Images](#docker-images)
+- [Kubernetes Manifests](#kubernetes-manifests)
+- [Helm Deployment](#helm-deployment)
+- [Ingress and Local URLs](#ingress-and-local-urls)
+- [Security Hardening](#security-hardening)
+- [Persistence](#persistence)
 - [Useful Commands](#useful-commands)
 - [Screenshots](#screenshots)
+- [Troubleshooting Notes](#troubleshooting-notes)
 - [What I Learned](#what-i-learned)
-- [Conclusion](#conclusion)
+- [Disclaimer](#disclaimer)
 
 ---
 
-## Overview
+## Project Overview
 
-This project demonstrates how a modern fullstack web application can be secured and automated using DevSecOps practices.
+This repository is based on an existing FastAPI DevSecOps platform and adds a Kubernetes-based deployment layer on top of it.
 
-The application itself is based on the official **FastAPI Full Stack Template**, which already provides a realistic fullstack setup with a backend, frontend, database, Docker, and GitHub Actions. Instead of focusing on writing a new application from scratch, this project focuses on building a professional DevSecOps layer around an existing application.
+The application consists of three main components:
 
-The main goal was to simulate a realistic engineering workflow where an existing application is containerized, scanned, hardened, monitored for dependency risks, built through CI/CD pipelines, pushed to a container registry, documented through SBOMs, and signed for supply chain security.
+- **Frontend** served through Nginx
+- **Backend** built with FastAPI
+- **PostgreSQL database** with persistent storage
 
----
+Instead of running everything only with Docker Compose, the application is deployed into a local Kubernetes cluster using k3d. The project includes Kubernetes manifests and a Helm chart to make the deployment reusable and easier to manage.
 
-## Original Application Template
-
-This project is based on the official FastAPI Full Stack Template:
-
-- Original repository: [fastapi/full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template)
-- Official documentation: [FastAPI Project Generation](https://fastapi.tiangolo.com/project-generation/)
-
-The original template provides a modern fullstack application with:
-
-- FastAPI backend
-- React frontend
-- TypeScript
-- SQLModel
-- PostgreSQL
-- Docker
-- Docker Compose
-- GitHub Actions
-- Traefik
-- Automatic HTTPS support
-- API documentation
-- Authentication and user management
-
-This project uses the template as a realistic application base and extends it with additional DevSecOps and security engineering practices.
+The final result is a local Kubernetes environment where the frontend, backend, and database run as separate workloads and communicate through Kubernetes services.
 
 ---
 
-## Project Goal
+## What This Project Demonstrates
 
-The goal of this project was not to build a new web application from scratch.
+This project demonstrates practical knowledge of:
 
-The goal was to answer this question:
-
-> How can an existing fullstack application be secured, automated, scanned, hardened, and prepared for modern DevSecOps workflows?
-
-This is close to real-world DevSecOps work. DevSecOps Engineers do not create every application from zero. Instead, they secure existing applications, improve CI/CD pipelines, reduce risk, automate scans, harden infrastructure, and improve software supply chain visibility.
+- Containerized application deployment
+- Kubernetes workloads and networking
+- Local cluster management with k3d
+- Service discovery inside Kubernetes
+- Ingress routing with Traefik
+- ConfigMaps and Secrets
+- Persistent storage for PostgreSQL
+- Helm chart packaging
+- Basic security hardening for Kubernetes workloads
+- Health checks with readiness and liveness probes
+- Resource requests and limits
 
 ---
 
-## Why This Project Exists
+## What Is Kubernetes?
 
-A normal Docker project usually stops at:
+Kubernetes is a system for managing containers.
+
+With Docker Compose, containers are usually started directly on one machine:
 
 ```text
-docker compose up
+Docker Compose
+├── frontend
+├── backend
+└── postgres
 ```
 
-This project goes further.
+This works well for local development. However, Docker Compose is limited when an application needs to scale, recover from failures, or run across multiple machines.
 
-It includes:
+Kubernetes solves this by acting as a **container orchestrator**.
 
-- Automated CI/CD pipelines
-- Secret scanning
-- SAST scanning
-- Dependency scanning
-- Container image scanning
-- Docker hardening
-- SBOM generation
-- GitHub Security integration
-- Dependabot alerts
-- GitHub Container Registry
-- Signed container images
-- Supply chain security concepts
+That means Kubernetes can:
 
-The goal was to turn a regular fullstack application into a DevSecOps-focused platform.
+- Start containers
+- Restart failed containers
+- Expose applications through services
+- Store configuration separately from application code
+- Manage secrets
+- Scale workloads
+- Route traffic
+- Attach persistent storage
+- Monitor if applications are healthy
+
+A simple way to understand Kubernetes:
+
+> Docker runs containers. Kubernetes manages containers.
+
+In this project, Kubernetes is used to run the frontend, backend, and PostgreSQL database in a structured and reproducible way.
 
 ---
 
-## High-Level Architecture
+## Why Kubernetes Was Added
+
+The original project already had a strong DevSecOps foundation with containerization and security tooling. Kubernetes was added as the next infrastructure layer to make the project more realistic for modern DevOps, DevSecOps, and cloud-native environments.
+
+The goal was to learn and demonstrate how an application can move from a Docker-based setup to a Kubernetes-based setup.
+
+The Kubernetes setup adds:
+
+- Better separation between application components
+- Internal networking through Kubernetes services
+- Config and secret management
+- Persistent database storage
+- Ingress routing through Traefik
+- Health checks
+- Resource control
+- Helm-based deployment
+
+---
+
+## Architecture
+
+High-level architecture:
 
 ```text
-Developer
-   |
-   | git push
-   v
-GitHub Repository
-   |
-   | GitHub Actions
-   v
-Security Pipeline
-   |-- Gitleaks
-   |-- Semgrep
-   |-- Trivy
-   |-- pip-audit
-   |-- npm audit
-   |
-   v
-Docker Build Pipeline
-   |-- Build backend image
-   |-- Build frontend image
-   |
-   v
-GitHub Container Registry
-   |-- ghcr.io/<user>/fastapi-backend
-   |-- ghcr.io/<user>/fastapi-frontend
-   |
-   v
-Cosign Image Signing
-   |
-   v
-Signed and traceable container images
+Browser
+  │
+  ▼
+Traefik Ingress
+  │
+  ├── frontend.localhost ──► frontend-service ──► frontend pod
+  │
+  └── api.localhost ──────► backend-service ───► backend pod
+                                      │
+                                      ▼
+                              postgres-service
+                                      │
+                                      ▼
+                                postgres pod
+                                      │
+                                      ▼
+                              Persistent Volume
 ```
 
-The local application stack runs with Docker Compose:
+Inside the Kubernetes cluster:
 
 ```text
-Frontend Container
-   |
-   v
-Backend API Container
-   |
-   v
-PostgreSQL Database Container
+Namespace: devsecops
+
+├── Backend Deployment
+│   └── FastAPI backend pod
+│
+├── Frontend Deployment
+│   └── Nginx frontend pod
+│
+├── PostgreSQL Deployment
+│   └── PostgreSQL pod
+│
+├── Services
+│   ├── backend-service
+│   ├── frontend-service
+│   └── postgres-service
+│
+├── ConfigMap
+│   └── non-sensitive backend configuration
+│
+├── Secret
+│   └── sensitive backend values
+│
+├── PersistentVolumeClaim
+│   └── PostgreSQL storage
+│
+└── Ingress
+    └── Traefik routing for local URLs
 ```
 
 ---
 
-## Technology Stack
+## Tech Stack
 
-### Application Stack
-
-| Component | Technology |
+| Technology | Purpose |
 |---|---|
-| Backend | FastAPI |
-| Backend Language | Python |
-| Frontend | React |
-| Frontend Language | TypeScript |
-| Database | PostgreSQL |
-| ORM / Data Layer | SQLModel |
-| API Docs | OpenAPI / Swagger |
-| Containerization | Docker |
-| Local Orchestration | Docker Compose |
-| Reverse Proxy Support | Traefik |
-
-### DevSecOps Stack
-
-| Area | Tool |
-|---|---|
-| CI/CD | GitHub Actions |
-| Secret Scanning | Gitleaks |
-| SAST | Semgrep |
-| Container Scanning | Trivy |
-| Filesystem Scanning | Trivy |
-| Backend Dependency Scanning | pip-audit |
-| Frontend Dependency Scanning | npm audit |
-| Dependency Monitoring | Dependabot |
-| Registry | GitHub Container Registry |
-| SBOM Generation | Anchore SBOM Action / Syft |
-| Image Signing | Cosign / Sigstore |
-| Workflow Security | zizmor |
-| Pre-Commit Quality Checks | pre-commit / prek |
-| Python Linting | Ruff |
-| Type Checking | mypy / ty |
-| Frontend Linting | Biome |
+| FastAPI | Backend API |
+| PostgreSQL | Database |
+| Nginx | Serves the frontend build |
+| Docker | Builds application images |
+| Kubernetes | Container orchestration |
+| k3d | Local Kubernetes cluster using Docker |
+| k3s | Lightweight Kubernetes distribution used by k3d |
+| kubectl | CLI tool to interact with Kubernetes |
+| Traefik | Ingress controller and reverse proxy |
+| Helm | Kubernetes package manager |
+| ConfigMap | Non-sensitive configuration |
+| Secret | Sensitive configuration |
+| PersistentVolumeClaim | Persistent database storage |
 
 ---
 
-## What the Base Application Does
+## Core Kubernetes Concepts Used
 
-The base application is a modern fullstack web platform.
+### Cluster
 
-In simple terms, it provides:
+A Kubernetes cluster is the environment where workloads run.
 
-- A frontend dashboard
-- A FastAPI backend
-- User authentication
-- User management
-- API endpoints
-- PostgreSQL database integration
-- Interactive API documentation
-
-The application follows a common real-world architecture:
-
-```text
-React Frontend
-   |
-   | HTTP/API requests
-   v
-FastAPI Backend
-   |
-   | SQL queries / ORM
-   v
-PostgreSQL Database
-```
-
-The API documentation is available through Swagger/OpenAPI. This allows developers to test API endpoints directly in the browser.
-
----
-
-# DevSecOps Features Implemented
-
-## 1. GitHub Actions CI/CD
-
-GitHub Actions is used to automate the project workflow.
-
-Instead of manually running security tools, building Docker images, and pushing them to a registry, GitHub Actions performs these tasks automatically when code is pushed.
-
-Implemented workflows include:
-
-- Security scanning workflow
-- Docker build and push workflow
-- SBOM generation workflow
-- Existing template workflows for tests, pre-commit, Docker Compose validation, and workflow security checks
-
-Why this matters:
-
-- Reduces manual work
-- Makes results reproducible
-- Finds problems earlier
-- Creates a professional CI/CD process
-- Integrates security into development
-
-This is one of the core principles of DevSecOps: security should run automatically as part of the development process.
-
----
-
-## 2. Secret Scanning with Gitleaks
-
-Gitleaks is used to detect accidentally committed secrets.
-
-It scans the repository for sensitive data such as:
-
-- API keys
-- Passwords
-- Tokens
-- Private keys
-- Credentials
-- Hardcoded secrets
-
-Why this matters:
-
-One of the most common security mistakes is accidentally committing secrets into a Git repository. Once a secret is pushed, it can be exposed, copied, or abused.
-
-Gitleaks helps prevent this by scanning the codebase automatically.
-
-Example of what Gitleaks is meant to catch:
-
-```env
-AWS_SECRET_ACCESS_KEY=example-secret-key
-DATABASE_PASSWORD=supersecret
-PRIVATE_KEY=...
-```
-
-In this project, Gitleaks runs automatically in the security workflow.
-
----
-
-## 3. Static Application Security Testing with Semgrep
-
-Semgrep is used for Static Application Security Testing.
-
-SAST means the code is scanned without running the application.
-
-Semgrep can detect risky code patterns such as:
-
-- SQL injection patterns
-- Command injection risks
-- Unsafe input handling
-- Insecure configuration
-- Dangerous function usage
-- Hardcoded credentials
-- Weak security practices
-
-Why this matters:
-
-Semgrep helps find security issues early, before code reaches production.
-
-This is important because fixing issues earlier is usually easier and cheaper than fixing them after deployment.
-
-In this project, Semgrep is integrated into the GitHub Actions security workflow.
-
-Semgrep results are also exported as SARIF and uploaded to GitHub Code Scanning, so findings can be viewed in the GitHub Security tab.
-
----
-
-## 4. Vulnerability Scanning with Trivy
-
-Trivy is used to scan for known vulnerabilities.
-
-It is used in multiple ways:
-
-### Filesystem Scan
-
-The repository is scanned for vulnerabilities and misconfigurations.
-
-### Backend Image Scan
-
-The backend Docker image is built and scanned.
-
-### Frontend Image Scan
-
-The frontend Docker image is built and scanned.
-
-Why this matters:
-
-A container image contains more than application code. It also includes:
-
-- OS packages
-- Python packages
-- Node packages
-- system libraries
-- base image layers
-- runtime dependencies
-
-Even if the application code is clean, the image can still contain vulnerable packages.
-
-Trivy helps detect these issues.
-
-In this project, Trivy found real vulnerabilities in container images and dependencies. Instead of hiding them, the workflow reports them. This reflects a realistic DevSecOps approach: first create visibility, then prioritize and fix.
-
----
-
-## 5. Dependency Scanning with pip-audit and npm audit
-
-Dependency scanning was added for both backend and frontend.
-
-### Backend
-
-`pip-audit` checks Python dependencies for known vulnerabilities.
-
-### Frontend
-
-`npm audit` checks JavaScript/TypeScript dependencies for known vulnerabilities.
-
-Why this matters:
-
-Modern applications rely heavily on third-party packages. A vulnerability in a dependency can affect the entire application.
-
-Examples of dependency risks:
-
-- vulnerable web framework versions
-- insecure HTTP clients
-- prototype pollution in JavaScript packages
-- vulnerable template engines
-- path traversal in package utilities
-
-Dependency scanning helps identify these risks automatically.
-
-The scans are configured to continue on error in the pipeline. This means the findings are visible, but the pipeline does not immediately block development. This is useful during the early hardening phase of a project.
-
----
-
-## 6. Dependabot Security Monitoring
-
-Dependabot is enabled for automatic dependency monitoring.
-
-The repository already contains a professional Dependabot configuration for:
-
-- GitHub Actions
-- Python/uv dependencies
-- Bun/frontend dependencies
-- Docker images
-- Docker Compose
-- pre-commit hooks
-
-Dependabot alerts were also enabled in GitHub Security settings.
-
-Why this matters:
-
-Dependabot continuously checks dependencies against known vulnerability databases and can create alerts or pull requests when vulnerable versions are found.
-
-Dependabot does not replace Semgrep, Trivy, or Gitleaks.
-
-Each tool has a different role:
-
-| Tool | Purpose |
-|---|---|
-| Dependabot | Monitors dependencies and creates update alerts |
-| Semgrep | Scans source code for insecure patterns |
-| Trivy | Scans containers and filesystems for vulnerabilities |
-| Gitleaks | Detects committed secrets |
-| pip-audit | Audits Python dependencies |
-| npm audit | Audits frontend dependencies |
-
-Together, they create layered security coverage.
-
----
-
-## 7. Docker Image Builds and GitHub Container Registry
-
-A dedicated workflow builds backend and frontend Docker images and pushes them to GitHub Container Registry.
-
-The images are pushed as:
-
-```text
-ghcr.io/<github-user>/fastapi-backend:latest
-ghcr.io/<github-user>/fastapi-frontend:latest
-```
-
-Why this matters:
-
-In real CI/CD workflows, applications are usually not built manually on servers.
-
-Instead:
-
-```text
-Code push
-   |
-   v
-CI/CD pipeline builds image
-   |
-   v
-Image is pushed to registry
-   |
-   v
-Deployment pulls image from registry
-```
-
-GitHub Container Registry acts as a central place to store built Docker images.
-
-Benefits:
-
-- Reproducible builds
-- Centralized image storage
-- Better version control
-- Easier deployment later
-- Better supply chain visibility
-
-Even though this project is currently used locally, building and pushing images to GHCR demonstrates a realistic DevSecOps workflow.
-
----
-
-## 8. Docker Container Hardening
-
-The Docker setup was hardened to reduce risk.
-
-Container hardening was applied in two places:
-
-1. `backend/Dockerfile`
-2. `compose.yml`
-
-The goal was to reduce privileges and limit what containers can do at runtime.
-
-Implemented hardening features:
-
-- slim base image
-- non-root user
-- explicit file ownership
-- healthchecks
-- read-only filesystem
-- no-new-privileges
-- dropped Linux capabilities
-- tmpfs for temporary writable paths
-
-This is important because containers should not run with more privileges than necessary.
-
----
-
-## 9. SBOM Generation
-
-SBOM generation was added with a dedicated GitHub Actions workflow.
-
-SBOM means:
-
-> Software Bill of Materials
-
-It is basically an inventory list of what is inside a software artifact or container image.
-
-An SBOM can include:
-
-- operating system packages
-- Python packages
-- Node packages
-- system libraries
-- package versions
-- metadata about dependencies
-
-Why this matters:
-
-If a new critical vulnerability appears, an SBOM helps answer:
-
-> Are we using the affected package anywhere?
-
-For example, if a new OpenSSL vulnerability is announced, a company can check SBOMs to find which images contain OpenSSL.
-
-This is a key part of modern software supply chain security.
-
-In this project, SBOM files are generated for:
-
-- backend image
-- frontend image
-
-They are uploaded as GitHub Actions artifacts.
-
----
-
-## 10. GitHub Security Tab Integration
-
-Security findings were integrated into GitHub Code Scanning using SARIF uploads.
-
-SARIF is a standard format for static analysis results.
-
-The goal was to make findings visible in:
-
-```text
-GitHub Repository → Security → Code scanning alerts
-```
-
-Why this matters:
-
-Without SARIF upload, findings are only visible inside workflow logs.
-
-That means a developer would need to:
-
-```text
-Actions → Workflow run → Job → Logs → Scroll manually
-```
-
-With SARIF upload, findings become centralized in the GitHub Security tab.
-
-Benefits:
-
-- Easier visibility
-- Better tracking
-- Cleaner security workflow
-- More professional presentation
-- Better prioritization
-
-This is closer to how security findings are handled in real engineering teams.
-
----
-
-## 11. Container Image Signing with Cosign
-
-Cosign was added to sign Docker images after they are built and pushed to GHCR.
-
-The build workflow now:
-
-1. builds the backend image
-2. pushes the backend image to GHCR
-3. signs the backend image with Cosign
-4. builds the frontend image
-5. pushes the frontend image to GHCR
-6. signs the frontend image with Cosign
-
-Cosign uses keyless signing through GitHub Actions OIDC.
-
-This means no long-lived signing key has to be stored manually.
-
-Why this matters:
-
-Image signing answers this question:
-
-> Can I prove that this container image was built by my trusted CI/CD workflow and was not modified?
-
-Cosign helps verify:
-
-- image integrity
-- build identity
-- GitHub workflow identity
-- supply chain trust
-
-This is a modern DevSecOps and cloud-native security practice.
-
-Example verification command:
+In this project, the cluster is created locally with k3d:
 
 ```bash
-cosign verify \
-  --certificate-identity-regexp "https://github.com/<github-user>/<repo-name>/.github/workflows/.*" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/<github-user>/fastapi-backend:latest
+k3d cluster create devsecops-cluster \
+  -p "80:80@loadbalancer" \
+  -p "443:443@loadbalancer"
 ```
 
-If verification succeeds, the image signature is valid.
+This creates a local Kubernetes cluster that runs inside Docker.
 
 ---
 
-## 12. Pre-Commit and Workflow Security Checks
+### Node
 
-The original template already included a strong pre-commit setup.
+A node is a machine that runs Kubernetes workloads.
 
-The project includes checks such as:
+In this local setup, k3d creates a Kubernetes node inside Docker.
 
-- YAML validation
-- TOML validation
-- trailing whitespace cleanup
-- end-of-file fixes
-- frontend linting
-- Python linting with Ruff
-- Python formatting with Ruff
-- type checking with mypy
-- type checking with ty
-- frontend SDK generation
-- GitHub Actions security analysis with zizmor
+Example:
 
-Why this matters:
-
-Pre-commit checks help catch quality and security issues before code is merged.
-
-The included `zizmor` check is especially relevant for DevSecOps because it analyzes GitHub Actions workflows for security problems.
-
-This improves pipeline security and reduces the risk of insecure CI/CD configuration.
-
----
-
-# Docker Hardening Explained
-
-## Backend Dockerfile Changes
-
-### Slim Base Image
-
-The backend image was changed from:
-
-```dockerfile
-FROM python:3.10
+```bash
+kubectl get nodes
 ```
 
-to:
-
-```dockerfile
-FROM python:3.10-slim
-```
-
-Why:
-
-- smaller image
-- fewer unnecessary packages
-- reduced attack surface
-- potentially fewer vulnerabilities
-
-A smaller image is usually easier to secure.
-
 ---
 
-### Python Runtime Settings
+### Namespace
 
-The following environment variables were added or kept:
+A namespace is used to logically separate Kubernetes resources.
 
-```dockerfile
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-```
-
-Why:
-
-- `PYTHONUNBUFFERED=1` makes logs appear immediately
-- `PYTHONDONTWRITEBYTECODE=1` prevents unnecessary `.pyc` files
-- `UV_COMPILE_BYTECODE=1` improves Python startup/runtime behavior
-- `UV_LINK_MODE=copy` supports reliable dependency installation with uv
-
----
-
-### Non-Root User
-
-A dedicated application user was created:
-
-```dockerfile
-RUN groupadd --system appgroup \
-    && useradd --system --gid appgroup --home-dir /app appuser
-```
-
-Then the application runs as:
-
-```dockerfile
-USER appuser
-```
-
-Why:
-
-By default, containers often run as root. If an attacker exploits the application, root privileges inside the container increase the potential impact.
-
-Running as a non-root user follows the principle of least privilege.
-
----
-
-### File Ownership
-
-The application files and virtual environment were assigned to the non-root user:
-
-```dockerfile
-RUN chown -R appuser:appgroup /app/backend /app/.venv
-```
-
-Why:
-
-The application user needs permission to read and execute the application files and dependencies.
-
-This avoids running as root just to access files.
-
----
-
-### Healthcheck
-
-A backend healthcheck was added:
-
-```dockerfile
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/utils/health-check/', timeout=3)" || exit 1
-```
-
-Why:
-
-A healthcheck allows Docker to detect whether the application is still responding.
-
-If the application becomes unhealthy, this becomes visible through Docker.
-
----
-
-## Compose Hardening Changes
-
-Hardening was also applied in `compose.yml`.
-
-### Read-Only Filesystem
-
-```yaml
-read_only: true
-```
-
-Why:
-
-This prevents the container from writing to most of its filesystem.
-
-If an attacker gets code execution inside the container, they cannot easily modify files everywhere.
-
----
-
-### No New Privileges
-
-```yaml
-security_opt:
-  - no-new-privileges:true
-```
-
-Why:
-
-This prevents processes inside the container from gaining additional privileges.
-
-It helps reduce privilege escalation risk.
-
----
-
-### Drop Linux Capabilities
-
-```yaml
-cap_drop:
-  - ALL
-```
-
-Why:
-
-Linux capabilities provide special privileges such as network administration or system-level operations.
-
-Most application containers do not need these capabilities.
-
-Dropping all capabilities reduces what a compromised container can do.
-
----
-
-### tmpfs for Temporary Write Paths
-
-```yaml
-tmpfs:
-  - /tmp
-```
-
-Why:
-
-When `read_only: true` is enabled, some applications still need a temporary writable directory.
-
-`tmpfs` provides a temporary in-memory filesystem.
-
-It is cleared when the container stops.
-
-For the frontend Nginx container, additional tmpfs paths were added:
-
-```yaml
-tmpfs:
-  - /tmp
-  - /var/cache/nginx
-  - /var/run
-```
-
-Why:
-
-Nginx needs temporary runtime and cache paths to operate properly.
-
----
-
-### Python-Based Healthcheck
-
-The backend healthcheck in Compose was changed from `curl` to Python.
-
-Why:
-
-The slim Python image may not include `curl`.
-
-Using Python avoids installing an additional package just for a healthcheck.
-
-This keeps the image smaller.
-
----
-
-# CI/CD Workflow Overview
-
-## Security Workflow
-
-The security workflow performs:
-
-- repository checkout
-- Gitleaks secret scan
-- Semgrep SAST scan
-- Trivy filesystem scan
-- backend Docker image build
-- backend Trivy image scan
-- frontend Docker image build
-- frontend Trivy image scan
-- pip-audit backend dependency scan
-- npm audit frontend dependency scan
-- SARIF uploads for GitHub Security visibility
-
-This workflow provides automated security feedback on every push and pull request.
-
----
-
-## Docker Build and Push Workflow
-
-The Docker build workflow performs:
-
-- checkout
-- login to GHCR
-- install Cosign
-- build backend image
-- push backend image
-- sign backend image
-- build frontend image
-- push frontend image
-- sign frontend image
-
-This creates a complete image delivery pipeline.
-
----
-
-## SBOM Workflow
-
-The SBOM workflow performs:
-
-- checkout
-- build backend image
-- build frontend image
-- generate backend SBOM
-- generate frontend SBOM
-- upload SBOM files as artifacts
-
-This improves supply chain visibility.
-
----
-
-# Security Pipeline Overview
-
-The security pipeline uses layered checks.
+This project uses:
 
 ```text
-Code
- |
- |--> Gitleaks: secrets
- |
- |--> Semgrep: insecure code patterns
- |
- |--> Trivy FS: filesystem vulnerabilities
- |
- |--> Docker Build
-       |
-       |--> Trivy Image Scan: container vulnerabilities
-       |
-       |--> pip-audit: Python dependencies
-       |
-       |--> npm audit: frontend dependencies
+devsecops
 ```
 
-Why this layered approach matters:
-
-No single security tool finds everything.
-
-Each tool covers a different risk area.
+All application resources are deployed into this namespace.
 
 ---
 
-# Supply Chain Security Overview
+### Pod
 
-This project includes multiple supply chain security controls:
+A pod is the smallest deployable unit in Kubernetes.
 
-| Control | Purpose |
-|---|---|
-| Dependabot | Detect outdated or vulnerable dependencies |
-| SBOM | Document what is inside the images |
-| GHCR | Store built images centrally |
-| Cosign | Sign and verify container images |
-| Trivy | Detect vulnerable packages inside images |
-| Gitleaks | Prevent leaked secrets |
-| GitHub Security Tab | Centralize alerts |
+Usually, one pod contains one application container.
 
-Supply chain security is important because modern applications depend on many third-party components.
+In this project:
 
-The risk is not only in the code written by the developer, but also in the packages, images, build tools, and CI/CD workflows used around it.
+```text
+backend pod   -> FastAPI container
+frontend pod  -> Nginx container
+postgres pod  -> PostgreSQL container
+```
 
 ---
 
-# Local Setup
+### Deployment
 
-## Requirements
+A Deployment tells Kubernetes how to run an application.
 
-Install:
+It defines:
 
-- Git
+- Which image to use
+- How many replicas to run
+- Which ports to expose inside the pod
+- Health checks
+- Resource limits
+- Security settings
+
+If a pod crashes, the Deployment ensures that Kubernetes starts a new one.
+
+---
+
+### Service
+
+Pods can change their internal IP address. A Service gives them a stable network address.
+
+In this project:
+
+```text
+backend-service
+frontend-service
+postgres-service
+```
+
+The backend connects to PostgreSQL through:
+
+```text
+postgres-service
+```
+
+This is important because `localhost` inside a pod means the pod itself, not another container.
+
+---
+
+### ConfigMap
+
+A ConfigMap stores non-sensitive configuration.
+
+Examples:
+
+```text
+PROJECT_NAME
+ENVIRONMENT
+POSTGRES_SERVER
+POSTGRES_PORT
+BACKEND_CORS_ORIGINS
+```
+
+This keeps configuration separate from the container image.
+
+---
+
+### Secret
+
+A Secret stores sensitive values.
+
+Examples:
+
+```text
+SECRET_KEY
+POSTGRES_PASSWORD
+FIRST_SUPERUSER_PASSWORD
+SMTP_PASSWORD
+```
+
+For local development, placeholder values are used. In production, these values should be replaced with strong secrets and managed securely.
+
+---
+
+### PersistentVolumeClaim
+
+A PersistentVolumeClaim is used to request storage for a pod.
+
+PostgreSQL needs persistent storage because database data should not disappear when the pod restarts.
+
+This project uses a PVC for PostgreSQL data.
+
+---
+
+### Ingress
+
+Ingress exposes services through HTTP routes.
+
+Instead of using port-forwarding, Traefik routes traffic to the correct service.
+
+This project uses:
+
+```text
+http://frontend.localhost
+http://api.localhost/docs
+```
+
+---
+
+### Helm
+
+Helm is the package manager for Kubernetes.
+
+Instead of applying many YAML files manually, Helm packages them into a chart.
+
+With Helm, the whole platform can be installed or upgraded with one command.
+
+---
+
+## Repository Structure
+
+Example structure:
+
+```text
+.
+├── backend/
+├── frontend/
+├── k8s/
+│   ├── namespace.yaml
+│   ├── backend-configmap.yaml
+│   ├── backend-secret.yaml
+│   ├── backend-deployment.yaml
+│   ├── backend-service.yaml
+│   ├── frontend-deployment.yaml
+│   ├── frontend-service.yaml
+│   ├── postgres-deployment.yaml
+│   ├── postgres-service.yaml
+│   ├── postgres-pvc.yaml
+│   └── ingress.yaml
+│
+├── helm/
+│   └── fastapi-kubernetes-platform/
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── templates/
+│           ├── namespace.yaml
+│           ├── backend-configmap.yaml
+│           ├── backend-secret.yaml
+│           ├── backend-deployment.yaml
+│           ├── backend-service.yaml
+│           ├── frontend-deployment.yaml
+│           ├── frontend-service.yaml
+│           ├── postgres-deployment.yaml
+│           ├── postgres-service.yaml
+│           ├── postgres-pvc.yaml
+│           └── ingress.yaml
+│
+└── README.md
+```
+
+---
+
+## Prerequisites
+
+Required tools:
+
 - Docker Desktop
-- Docker Compose
-- Optional: Cosign
-- Optional: GitHub CLI
-- Optional: VS Code
+- kubectl
+- k3d
+- Helm
+- Git
 
----
-
-## Clone Repository
+Check versions:
 
 ```bash
-git clone https://github.com/<github-user>/fastapi-devsecops-platform.git
-cd fastapi-devsecops-platform
+docker --version
+kubectl version --client
+k3d version
+helm version
+```
+
+Install k3d with Homebrew:
+
+```bash
+brew install k3d
+```
+
+Install Helm with Homebrew:
+
+```bash
+brew install helm
 ```
 
 ---
 
-## Start Application
+## Local Kubernetes Cluster Setup
+
+Create a local k3d cluster:
 
 ```bash
-docker compose up -d --build
+k3d cluster create devsecops-cluster \
+  -p "80:80@loadbalancer" \
+  -p "443:443@loadbalancer"
 ```
 
----
+The port mapping is important because Traefik should be reachable directly through the browser without using port-forwarding.
 
-## Check Running Containers
+Check if the cluster is running:
 
 ```bash
-docker compose ps
+kubectl get nodes
 ```
 
----
-
-## View Logs
-
-```bash
-docker compose logs -f
-```
-
-Backend only:
-
-```bash
-docker compose logs -f backend
-```
-
-Frontend only:
-
-```bash
-docker compose logs -f frontend
-```
-
----
-
-## Stop Application
-
-```bash
-docker compose down
-```
-
----
-
-# Useful Commands
-
-## Build Backend Image
-
-```bash
-docker build -t fastapi-backend:local -f backend/Dockerfile .
-```
-
-## Build Frontend Image
-
-```bash
-docker build -t fastapi-frontend:local -f frontend/Dockerfile .
-```
-
-## Run Trivy Scan Locally
-
-```bash
-trivy image fastapi-backend:local
-```
-
-## Verify Signed Backend Image
-
-```bash
-cosign verify \
-  --certificate-identity-regexp "https://github.com/<github-user>/<repo-name>/.github/workflows/.*" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/<github-user>/fastapi-backend:latest
-```
-
-## Verify Signed Frontend Image
-
-```bash
-cosign verify \
-  --certificate-identity-regexp "https://github.com/<github-user>/<repo-name>/.github/workflows/.*" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/<github-user>/fastapi-frontend:latest
-```
-
----
-
-# Screenshots
-
-## Application UI
-
-![Application Dashboard](./img/application-dashboard.png)
-
----
-
-## API Documentation
-
-![FastAPI Swagger Docs](./img/api-docs.png)
-
----
-
-## GitHub Actions Security Workflow
-
-![Security Workflow](./img/security-workflow.png)
-
----
-
-## Trivy Vulnerability Findings
-
-![Trivy Findings](./img/trivy-findings.png)
-
----
-
-## GitHub Security Tab
-
-![GitHub Security Alerts](./img/github-security-alerts.png)
-
----
-
-## GitHub Container Registry
-
-![GHCR Packages](./img/ghcr-packages.png)
-
----
-
-## SBOM Artifacts
-
-![SBOM Artifacts](./img/sbom-artifacts.png)
-
----
-
-## Cosign Verification
-
-![Cosign Verification](./img/cosign-verification.png)
-
----
-
-# What I Learned
-
-This project helped me understand how DevSecOps works beyond simple containerization.
-
-Key learnings:
-
-## CI/CD Security
-
-I learned how to integrate security checks directly into GitHub Actions workflows.
-
-This included:
-
-- automated secret scanning
-- automated code scanning
-- automated vulnerability scanning
-- dependency auditing
-- SARIF uploads to GitHub Security
-
----
-
-## Container Security
-
-I learned that building a Docker image is not enough.
-
-A secure container should also consider:
-
-- base image size
-- unnecessary packages
-- root vs non-root execution
-- filesystem permissions
-- runtime privileges
-- healthchecks
-- Linux capabilities
-
----
-
-## Dependency Risk
-
-I learned that many vulnerabilities come from third-party packages rather than custom code.
-
-Tools like Dependabot, pip-audit, npm audit, and Trivy help create visibility into these risks.
-
----
-
-## Supply Chain Security
-
-I learned that modern software security also includes the build and delivery process.
-
-SBOMs and signed container images help answer important questions:
-
-- What is inside the image?
-- Who built the image?
-- Can the image be trusted?
-- Was the image modified?
-
----
-
-## GitHub Security Features
-
-I learned how GitHub can be used as a security platform, not only as a code repository.
-
-This includes:
-
-- Dependabot alerts
-- Code scanning alerts
-- GitHub Actions
-- GitHub Container Registry
-- SARIF uploads
-- package visibility
-
----
-
-## Realistic DevSecOps Workflow
-
-Most importantly, I learned how different security tools work together.
-
-No single tool is enough.
-
-A strong DevSecOps setup uses multiple layers:
+Expected result:
 
 ```text
-Secrets
-Code
-Dependencies
-Containers
-Registry
-SBOM
-Signatures
-GitHub Security Alerts
+NAME                             STATUS   ROLES                  VERSION
+k3d-devsecops-cluster-server-0   Ready    control-plane,master   ...
 ```
 
 ---
 
-# Conclusion
+## Docker Images
 
-This project demonstrates how a modern fullstack application can be transformed into a DevSecOps-focused platform.
+The Kubernetes cluster needs container images for the backend and frontend.
 
-It covers:
+Build the backend image:
 
-- CI/CD automation
-- security scanning
-- dependency monitoring
-- container hardening
-- vulnerability visibility
-- SBOM generation
-- GitHub Security integration
-- container registry usage
-- signed Docker images
-- software supply chain security
+```bash
+docker build -t backend:latest -f backend/Dockerfile .
+```
 
-The most important takeaway is that DevSecOps is not one tool or one workflow.
+Build the frontend image:
 
-DevSecOps is a mindset where security becomes part of the entire software delivery process.
+```bash
+docker build -t frontend:latest -f frontend/Dockerfile .
+```
 
-From code to container image to registry to verification, every step should be automated, visible, and secure.
+Import the images into the k3d cluster:
+
+```bash
+k3d image import backend:latest -c devsecops-cluster
+k3d image import frontend:latest -c devsecops-cluster
+```
+
+This is needed because the cluster runs inside Docker and does not automatically know every local image from the host system.
+
+---
+
+## Kubernetes Manifests
+
+The `k8s/` directory contains raw Kubernetes YAML files.
+
+These files can be applied manually:
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/backend-configmap.yaml
+kubectl apply -f k8s/backend-secret.yaml
+kubectl apply -f k8s/postgres-pvc.yaml
+kubectl apply -f k8s/postgres-deployment.yaml
+kubectl apply -f k8s/postgres-service.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/frontend-service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+However, the preferred deployment method for this project is Helm.
+
+---
+
+## Helm Deployment
+
+The Helm chart is located here:
+
+```text
+helm/fastapi-kubernetes-platform/
+```
+
+### Validate the Chart
+
+```bash
+helm lint ./helm/fastapi-kubernetes-platform
+```
+
+Expected result:
+
+```text
+1 chart(s) linted, 0 chart(s) failed
+```
+
+### Install the Application
+
+```bash
+helm install fastapi-platform ./helm/fastapi-kubernetes-platform
+```
+
+### Upgrade the Application
+
+After changing templates or values:
+
+```bash
+helm upgrade fastapi-platform ./helm/fastapi-kubernetes-platform
+```
+
+### List Helm Releases
+
+```bash
+helm list
+```
+
+### Uninstall the Release
+
+```bash
+helm uninstall fastapi-platform
+```
+
+If the namespace should also be removed:
+
+```bash
+kubectl delete namespace devsecops
+```
+
+---
+
+## Ingress and Local URLs
+
+Traefik is used as the Ingress controller.
+
+The local URLs are:
+
+```text
+http://frontend.localhost
+http://api.localhost/docs
+```
+
+The Ingress routes traffic like this:
+
+```text
+frontend.localhost -> frontend-service -> frontend pod
+api.localhost      -> backend-service  -> backend pod
+```
+
+Check the Ingress:
+
+```bash
+kubectl get ingress -n devsecops
+```
+
+---
+
+## Security Hardening
+
+This project includes basic Kubernetes security hardening.
+
+### Non-root Containers
+
+The backend and frontend containers run as non-root users.
+
+Backend example:
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  allowPrivilegeEscalation: false
+```
+
+Frontend example:
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  allowPrivilegeEscalation: false
+```
+
+This reduces the risk if a container is compromised.
+
+### Resource Requests and Limits
+
+Resource requests and limits are configured for backend, frontend, and PostgreSQL.
+
+This prevents containers from consuming unlimited CPU or memory.
+
+Example:
+
+```yaml
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+```
+
+### Readiness and Liveness Probes
+
+Health checks are used to let Kubernetes know whether a container is ready and healthy.
+
+- **Readiness probe**: decides if the pod should receive traffic
+- **Liveness probe**: decides if the pod should be restarted
+
+Backend uses HTTP probes.
+Frontend uses HTTP probes.
+PostgreSQL uses TCP probes.
+
+### ConfigMap and Secret Separation
+
+Non-sensitive configuration is stored in a ConfigMap.
+Sensitive values are stored in a Secret.
+
+This follows a cleaner DevSecOps approach than hardcoding everything inside application code.
+
+---
+
+## Persistence
+
+PostgreSQL uses a PersistentVolumeClaim.
+
+This means the database data can survive pod restarts.
+
+Check PVC status:
+
+```bash
+kubectl get pvc -n devsecops
+```
+
+Expected result:
+
+```text
+postgres-pvc   Bound
+```
+
+---
+
+## Useful Commands
+
+Check all pods:
+
+```bash
+kubectl get pods -n devsecops
+```
+
+Check services:
+
+```bash
+kubectl get svc -n devsecops
+```
+
+Check ingress:
+
+```bash
+kubectl get ingress -n devsecops
+```
+
+Check Helm releases:
+
+```bash
+helm list
+```
+
+View backend logs:
+
+```bash
+kubectl logs -n devsecops deployment/backend
+```
+
+View frontend logs:
+
+```bash
+kubectl logs -n devsecops deployment/frontend
+```
+
+View PostgreSQL logs:
+
+```bash
+kubectl logs -n devsecops deployment/postgres
+```
+
+Restart a deployment:
+
+```bash
+kubectl rollout restart deployment/backend -n devsecops
+```
+
+Check rollout status:
+
+```bash
+kubectl rollout status deployment/backend -n devsecops
+```
+
+Describe a pod:
+
+```bash
+kubectl describe pod <pod-name> -n devsecops
+```
+
+---
+
+## Screenshots
+
+Add screenshots of the running Kubernetes setup here.
+
+Recommended screenshots:
+
+### 1. Kubernetes Pods
+
+Command:
+
+```bash
+kubectl get pods -n devsecops
+```
+
+Suggested image:
+
+![Kubernetes Pods](./img/kubernetes-pods.png)
+
+### 2. Kubernetes Services
+
+Command:
+
+```bash
+kubectl get svc -n devsecops
+```
+
+Suggested image:
+
+![Kubernetes Services](./img/kubernetes-services.png)
+
+### 3. Kubernetes Ingress
+
+Command:
+
+```bash
+kubectl get ingress -n devsecops
+```
+
+Suggested image:
+
+![Kubernetes Ingress](./img/kubernetes-ingress.png)
+
+### 4. Helm Release
+
+Command:
+
+```bash
+helm list
+```
+
+Suggested image:
+
+![Helm Release](./img/helm-release.png)
+
+### 5. Frontend
+
+URL:
+
+```text
+http://frontend.localhost
+```
+
+Suggested image:
+
+![Frontend Application](./img/frontend-localhost.png)
+
+### 6. Backend API Docs
+
+URL:
+
+```text
+http://api.localhost/docs
+```
+
+Suggested image:
+
+![FastAPI Swagger Docs](./img/fastapi-swagger-docs.png)
+
+---
+
+## What I Learned
+
+Through this project, I learned how Kubernetes changes the way containerized applications are deployed and managed.
+
+The most important learning points were:
+
+- `kubectl` is the CLI used to communicate with Kubernetes
+- k3d can create a lightweight local Kubernetes cluster using Docker
+- Kubernetes does not run source code directly; it runs container images
+- Pods are the smallest running units in Kubernetes
+- Deployments keep pods running and replace failed pods automatically
+- Services provide stable internal networking
+- `localhost` inside a pod does not mean the host machine or another pod
+- ConfigMaps and Secrets separate configuration from application code
+- PostgreSQL needs persistent storage through a PVC
+- Ingress exposes services through clean local URLs
+- Helm packages Kubernetes resources into a reusable chart
+- Security hardening can be added through non-root users, resource limits, and health checks
+
+The project helped me understand the difference between simply running containers and managing containerized infrastructure.
 
 ---
 
 ## Disclaimer
 
-This project is intended for educational and portfolio purposes. It demonstrates DevSecOps concepts in a local and GitHub-based environment. It is not a complete production deployment and should be reviewed and adapted before being used in real production systems.
+This project is intended for learning and portfolio purposes.
+
+The local secrets and placeholder passwords are used only for local development. In a real production environment, secrets must be replaced with strong values and managed using a secure secret management solution.
